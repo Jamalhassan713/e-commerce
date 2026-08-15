@@ -4,6 +4,29 @@ import slugify from "slugify";
 import { User } from "./user.model";
 
 
+@Schema({ _id: false })
+export class CloudinaryImage {
+
+    @Prop({
+        type: String,
+        required: true,
+        trim: true
+    })
+    secure_url: string;
+
+    @Prop({
+        type: String,
+        required: true,
+        trim: true
+    })
+    public_id: string;
+}
+
+
+export const CloudinaryImageSchema =
+    SchemaFactory.createForClass(CloudinaryImage);
+
+
 @Schema({ timestamps: true })
 export class Brand {
 
@@ -22,22 +45,13 @@ export class Brand {
     })
     slug: string;
 
+
     @Prop({
-        type: {
-            secure_url: {
-                type: String,
-                required: true
-            },
-            public_id: {
-                type: String,
-                required: true
-            }
-        }
+        type: CloudinaryImageSchema,
+        required: true
     })
-    logo: {
-        secure_url: string;
-        public_id: string;
-    };
+    logo: CloudinaryImage;
+
 
     @Prop({
         type: Types.ObjectId,
@@ -68,6 +82,8 @@ BrandSchema.index(
         }
     }
 );
+
+
 BrandSchema.index(
     { slug: 1 },
     {
@@ -87,6 +103,7 @@ export const BrandModel = MongooseModule.forFeatureAsync([
         useFactory: () => {
 
             const schema = BrandSchema;
+
             schema.pre("save", function () {
 
                 this.slug = slugify(this.name, {
@@ -96,6 +113,8 @@ export const BrandModel = MongooseModule.forFeatureAsync([
                 });
 
             });
+
+
             schema.pre("findOneAndUpdate", function () {
 
                 const update: any = this.getUpdate();
@@ -129,7 +148,6 @@ export const BrandModel = MongooseModule.forFeatureAsync([
             });
 
             return schema;
-
         }
     }
 ]);
