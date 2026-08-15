@@ -2,12 +2,9 @@ import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { MongooseModule } from '@nestjs/mongoose';
-import { LogggerMiddleware, SocketModule } from './common';
-import { GlobalModule } from './common/modules';
+import { LogggerMiddleware } from './common';
+import { AdminModule, AuthModule, BrandModule, GlobalModule, SocketModule, UsersModule } from './common/modules';
 import { EventEmitterModule } from '@nestjs/event-emitter';
-import { AuthModule } from './auth/auth.module';
-import { UsersModule } from './users/users.module';
-import { AdminModule } from './admin/admin.module';
 
 @Module({
   imports: [
@@ -17,7 +14,8 @@ import { AdminModule } from './admin/admin.module';
     MongooseModule.forRoot(process.env.DB_URL as string),
     EventEmitterModule.forRoot(),
     AdminModule,
-    SocketModule
+    SocketModule,
+    BrandModule
   ],
   controllers: [AppController],
   providers: [AppService],

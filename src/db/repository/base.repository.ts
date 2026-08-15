@@ -41,6 +41,10 @@ export abstract class BaseRepository<T> {
         return await this.model.findByIdAndUpdate(id, update, { new: true, runValidators: true, ...options });
     }
 
+    async findByIdAndDelete(id: string | Types.ObjectId, options?: QueryOptions<T>): Promise<T | null> {
+        return await this.model.findByIdAndDelete(id, options);
+    }
+
     async updateMany(filter: FilterQuery<T>, update: UpdateQuery<T>): Promise<UpdateResult> {
         return await this.model.updateMany(filter, update);
     }

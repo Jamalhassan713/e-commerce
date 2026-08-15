@@ -1,3 +1,6 @@
 export * from './user.model'
 export * from './black-listed-token'
 export * from './notification.model'
+export * from './brand.model'
+export * from './category.model'
+export * from './product.model'
