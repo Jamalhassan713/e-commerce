@@ -1,4 +1,6 @@
 import "dotenv/config";
+import dns from "dns";
+dns.setDefaultResultOrder("ipv4first");
 import { NestFactory } from "@nestjs/core";
 import { AppModule } from "./app.module";
 import { UnifiedResponseInterceptor } from "./common";
