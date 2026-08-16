@@ -1,5 +1,15 @@
-import { MongooseModule, Prop, Schema, SchemaFactory } from "@nestjs/mongoose";
-import { HydratedDocument, Types } from "mongoose";
+import {
+    MongooseModule,
+    Prop,
+    Schema,
+    SchemaFactory
+} from "@nestjs/mongoose";
+
+import {
+    HydratedDocument,
+    Types
+} from "mongoose";
+
 import slugify from "slugify";
 
 import { User } from "./user.model";
@@ -66,6 +76,11 @@ export class Product {
     stock: number;
 
 
+    /*
+     * Rating is not controlled by the user.
+     *
+     * It will be calculated later from Reviews.
+     */
     @Prop({
         type: Number,
         min: [0, "Rating cannot be negative"],
@@ -75,19 +90,30 @@ export class Product {
     rating: number;
 
 
+    /*
+     * Cloudinary Images
+     *
+     * We store both:
+     * - secure_url → image URL
+     * - public_id  → used to delete/replace the image
+     */
     @Prop({
         type: [
             {
                 secure_url: {
                     type: String,
-                    required: true
+                    required: true,
+                    trim: true
                 },
+
                 public_id: {
                     type: String,
-                    required: true
+                    required: true,
+                    trim: true
                 }
             }
         ],
+
         default: []
     })
     images: {
@@ -96,6 +122,9 @@ export class Product {
     }[];
 
 
+    /*
+     * Product Owner
+     */
     @Prop({
         type: Types.ObjectId,
         ref: User.name,
@@ -104,6 +133,9 @@ export class Product {
     createdBy: Types.ObjectId;
 
 
+    /*
+     * Product Category
+     */
     @Prop({
         type: Types.ObjectId,
         ref: Category.name,
@@ -112,6 +144,9 @@ export class Product {
     category: Types.ObjectId;
 
 
+    /*
+     * Product Brand
+     */
     @Prop({
         type: Types.ObjectId,
         ref: Brand.name,
@@ -120,6 +155,9 @@ export class Product {
     brand: Types.ObjectId;
 
 
+    /*
+     * Product status
+     */
     @Prop({
         type: Boolean,
         default: true
@@ -127,6 +165,9 @@ export class Product {
     isActive: boolean;
 
 
+    /*
+     * Soft delete
+     */
     @Prop({
         type: Boolean,
         default: false
@@ -135,31 +176,53 @@ export class Product {
 }
 
 
-export const ProductSchema = SchemaFactory.createForClass(Product);
+export const ProductSchema =
+    SchemaFactory.createForClass(Product);
 
 
-// Product filtering indexes
+/*
+|--------------------------------------------------------------------------
+| Indexes
+|--------------------------------------------------------------------------
+*/
 
+
+// Filter products by category
 ProductSchema.index({
     category: 1
 });
 
+
+// Filter products by brand
 ProductSchema.index({
     brand: 1
 });
 
+
+// Filter active / deleted products
 ProductSchema.index({
     isActive: 1,
     isDeleted: 1
 });
 
+
+// Filter products by category + brand
 ProductSchema.index({
     category: 1,
     brand: 1
 });
 
 
-// Generate slug and calculate final price
+/*
+|--------------------------------------------------------------------------
+| Pre Save
+|--------------------------------------------------------------------------
+|
+| Generate slug
+| Calculate final price
+|
+*/
+
 ProductSchema.pre("save", function () {
 
     this.slug = slugify(this.title, {
@@ -168,86 +231,140 @@ ProductSchema.pre("save", function () {
         replacement: "-"
     });
 
+
     this.finalPrice =
-        this.price - (this.price * (this.discount / 100));
+        this.price -
+        (this.price * (this.discount / 100));
+
 });
 
 
-// Update slug and final price
-ProductSchema.pre("findOneAndUpdate", function () {
+/*
+|--------------------------------------------------------------------------
+| Pre FindOneAndUpdate
+|--------------------------------------------------------------------------
+|
+| Handle:
+| - title → slug
+| - price / discount → finalPrice
+|
+*/
 
-    const update: any = this.getUpdate();
+ProductSchema.pre(
+    "findOneAndUpdate",
+    async function () {
 
-    const title =
-        update.title ??
-        update.$set?.title;
+        const update: any = this.getUpdate();
 
-    const price =
-        update.price ??
-        update.$set?.price;
-
-    const discount =
-        update.discount ??
-        update.$set?.discount;
+        update.$set = update.$set || {};
 
 
-    // Update slug
-    if (title) {
+        /*
+         * Update slug
+         */
 
-        const slug = slugify(title, {
-            lower: true,
-            trim: true,
-            replacement: "-"
-        });
+        const title =
+            update.$set.title ??
+            update.title;
 
-        if (update.$set) {
-            update.$set.slug = slug;
-        } else {
-            update.slug = slug;
+        if (title !== undefined) {
+
+            update.$set.slug =
+                slugify(title, {
+                    lower: true,
+                    trim: true,
+                    replacement: "-"
+                });
+
         }
-    }
 
 
-    // Update final price
-    if (price !== undefined || discount !== undefined) {
+        /*
+         * Get price / discount from update
+         */
 
-        const currentPrice =
-            price ??
-            update.$set?.price;
+        const price =
+            update.$set.price ??
+            update.price;
 
-        const currentDiscount =
-            discount ??
-            update.$set?.discount;
+        const discount =
+            update.$set.discount ??
+            update.discount;
+
+
+        /*
+         * Recalculate finalPrice
+         */
 
         if (
-            currentPrice !== undefined &&
-            currentDiscount !== undefined
+            price !== undefined ||
+            discount !== undefined
         ) {
 
-            const finalPrice =
-                currentPrice -
-                (currentPrice * (currentDiscount / 100));
+            const currentDocument =
+                await this.model
+                    .findOne(this.getQuery())
+                    .select("price discount")
+                    .lean()
+                    .exec() as {
+                        price: number;
+                        discount: number;
+                    } | null;
 
 
-            if (update.$set) {
-                update.$set.finalPrice = finalPrice;
-            } else {
-                update.finalPrice = finalPrice;
+            if (currentDocument) {
+
+                const currentPrice =
+                    price ??
+                    currentDocument.price;
+
+                const currentDiscount =
+                    discount ??
+                    currentDocument.discount;
+
+
+                update.$set.finalPrice =
+                    currentPrice -
+                    (
+                        currentPrice *
+                        (currentDiscount / 100)
+                    );
+
             }
         }
+
+
+        this.setUpdate(update);
     }
-    this.setUpdate(update);
-});
+);
 
+/*
+|--------------------------------------------------------------------------
+| Model
+|--------------------------------------------------------------------------
+*/
 
-export const ProductModel = MongooseModule.forFeatureAsync([
-    {
-        name: Product.name,
-        useFactory: () => {
-            return ProductSchema;
+export const ProductModel =
+    MongooseModule.forFeatureAsync([
+
+        {
+            name: Product.name,
+
+            useFactory: () => {
+
+                return ProductSchema;
+
+            }
         }
-    }
-]);
+
+    ]);
 
 
-export type ProductDocument = HydratedDocument<Product>;
+/*
+|--------------------------------------------------------------------------
+| Document Type
+|--------------------------------------------------------------------------
+*/
+
+export type ProductDocument =
+    HydratedDocument<Product>;

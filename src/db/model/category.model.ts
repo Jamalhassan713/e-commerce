@@ -3,7 +3,6 @@ import { HydratedDocument, Types } from "mongoose";
 import slugify from "slugify";
 import { User } from "./user.model";
 
-
 @Schema({ timestamps: true })
 export class Category {
 
@@ -13,7 +12,6 @@ export class Category {
         required: true
     })
     name: string;
-
 
     @Prop({
         type: String,
@@ -32,7 +30,8 @@ export class Category {
                 type: String,
                 required: true
             }
-        }
+        },
+        required: true
     })
     logo: {
         secure_url: string;
@@ -46,7 +45,6 @@ export class Category {
     })
     createdBy: Types.ObjectId;
 
-
     @Prop({
         type: Boolean,
         default: false
@@ -54,8 +52,8 @@ export class Category {
     isDeleted: boolean;
 }
 
-
-export const CategorySchema = SchemaFactory.createForClass(Category);
+export const CategorySchema =
+    SchemaFactory.createForClass(Category);
 
 CategorySchema.index(
     { name: 1 },
@@ -79,59 +77,59 @@ CategorySchema.index(
     }
 );
 
-export const CategoryModel = MongooseModule.forFeatureAsync([
-    {
-        name: Category.name,
+export const CategoryModel =
+    MongooseModule.forFeatureAsync([
+        {
+            name: Category.name,
 
-        useFactory: () => {
+            useFactory: () => {
 
-            const schema = CategorySchema;
+                const schema = CategorySchema;
 
-            schema.pre("save", function () {
+                schema.pre("save", function () {
 
-                this.slug = slugify(this.name, {
-                    lower: true,
-                    trim: true,
-                    replacement: "-"
-                });
-
-            });
-
-            schema.pre("findOneAndUpdate", function () {
-
-                const update: any = this.getUpdate();
-
-                const name = update.name ?? update.$set?.name;
-
-
-                if (name) {
-
-                    const slug = slugify(name, {
+                    this.slug = slugify(this.name, {
                         lower: true,
                         trim: true,
                         replacement: "-"
                     });
 
+                });
 
-                    if (update.$set) {
+                schema.pre(
+                    "findOneAndUpdate",
+                    function () {
 
-                        update.$set.slug = slug;
+                        const update: any =
+                            this.getUpdate();
 
-                    } else {
+                        const name =
+                            update.$set?.name ??
+                            update.name;
 
-                        update.slug = slug;
+                        if (name !== undefined) {
 
+                            const slug =
+                                slugify(name, {
+                                    lower: true,
+                                    trim: true,
+                                    replacement: "-"
+                                });
+
+                            update.$set =
+                                update.$set || {};
+
+                            update.$set.slug = slug;
+                        }
+
+                        this.setUpdate(update);
                     }
+                );
 
-                }
-
-                this.setUpdate(update);
-
-            });
-            return schema;
+                return schema;
+            }
         }
-    }
-]);
+    ]);
 
-
-export type CategoryDocument = HydratedDocument<Category>;
+export type CategoryDocument =
+    HydratedDocument<Category>;

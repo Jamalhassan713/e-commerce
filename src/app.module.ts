@@ -3,7 +3,7 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { MongooseModule } from '@nestjs/mongoose';
 import { LogggerMiddleware } from './common';
-import { AdminModule, AuthModule, BrandModule, GlobalModule, SocketModule, UsersModule } from './common/modules';
+import { AdminModule, AuthModule, BrandModule, CategoryModule, GlobalModule, ProductModule, SocketModule, UsersModule } from './common/modules';
 import { EventEmitterModule } from '@nestjs/event-emitter';
 
 @Module({
@@ -15,7 +15,9 @@ import { EventEmitterModule } from '@nestjs/event-emitter';
     EventEmitterModule.forRoot(),
     AdminModule,
     SocketModule,
-    BrandModule
+    BrandModule,
+    CategoryModule,
+    ProductModule
   ],
   controllers: [AppController],
   providers: [AppService],
