@@ -14,7 +14,7 @@ export class EmailService {
             host: "smtp.gmail.com",
             port: 465,
             secure: true,
-
+            family: 4,
             auth: {
                 user: process.env.USER_EMAIL,
                 pass: process.env.USER_PASSWORD,
