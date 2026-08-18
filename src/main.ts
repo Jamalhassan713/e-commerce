@@ -5,9 +5,11 @@ import { NestFactory } from "@nestjs/core";
 import { AppModule } from "./app.module";
 import { UnifiedResponseInterceptor } from "./common";
 import { ValidationPipe } from "@nestjs/common";
+import { json } from "express";
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+  app.use(json({ limit: "10mb" }));
   app.useGlobalInterceptors(new UnifiedResponseInterceptor());
   app.useGlobalPipes(
     new ValidationPipe({

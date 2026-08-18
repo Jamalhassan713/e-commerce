@@ -1,13 +1,4 @@
-import {
-    IsArray,
-    IsMongoId,
-    IsNotEmpty,
-    IsNumber,
-    IsOptional,
-    IsString,
-    Max,
-    Min
-} from "class-validator";
+import { ArrayMaxSize, IsArray, IsBase64, IsMongoId, IsNotEmpty, IsNumber, IsOptional, IsString, Max, Min } from "class-validator";
 
 export class CreateProductDto {
 
@@ -44,6 +35,8 @@ export class CreateProductDto {
 
     @IsOptional()
     @IsArray()
+    @ArrayMaxSize(6)
+    @IsBase64({}, { each: true })
     images?: string[];
 }
 
@@ -85,5 +78,7 @@ export class UpdateProductDto {
 
     @IsOptional()
     @IsArray()
+    @ArrayMaxSize(6)
+    @IsBase64({}, { each: true })
     images?: string[];
 }

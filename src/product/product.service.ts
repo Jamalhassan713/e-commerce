@@ -1,26 +1,9 @@
-import {
-    BadRequestException,
-    ConflictException,
-    ForbiddenException,
-    Injectable,
-    NotFoundException
-} from "@nestjs/common";
-
+import { BadRequestException, ConflictException, Injectable, NotFoundException } from "@nestjs/common";
 import { Types } from "mongoose";
 import { UploadApiResponse } from "cloudinary";
-
-import {
-    BrandRepository,
-    CategoryRepository,
-    ProductRepository
-} from "@/db";
-
+import { BrandRepository, CategoryRepository, ProductRepository } from "@/db";
 import { CloudinaryService } from "@/common";
-
-import {
-    CreateProductDto,
-    UpdateProductDto
-} from "./product.dto";
+import { CreateProductDto, UpdateProductDto } from "./product.dto";
 
 @Injectable()
 export class ProductService {
@@ -30,59 +13,29 @@ export class ProductService {
         private readonly categoryRepository: CategoryRepository,
         private readonly brandRepository: BrandRepository,
         private readonly cloudinaryService: CloudinaryService
-    ) {}
+    ) { }
 
-    async addProduct(
-        body: CreateProductDto,
-        userId: string
-    ) {
+    async addProduct(body: CreateProductDto, userId: string) {
 
-        const {
+        const { title, overview, price, discount = 0, stock = 0, category, brand, images } = body;
+
+        const categoryExists = await this.categoryRepository.exists({
+            _id: category,
+            isDeleted: false
+        });
+
+        if (!categoryExists) throw new NotFoundException("Category not found");
+        const brandExists = await this.brandRepository.exists({
+            _id: brand,
+            isDeleted: false
+        });
+        if (!brandExists) throw new NotFoundException("Brand not found");
+
+        const productExists = await this.productRepository.exists({
             title,
-            overview,
-            price,
-            discount = 0,
-            stock = 0,
-            category,
-            brand,
-            images
-        } = body;
-
-        const categoryExists =
-            await this.categoryRepository.exists({
-                _id: category,
-                isDeleted: false
-            });
-
-        if (!categoryExists) {
-            throw new NotFoundException(
-                "Category not found"
-            );
-        }
-
-        const brandExists =
-            await this.brandRepository.exists({
-                _id: brand,
-                isDeleted: false
-            });
-
-        if (!brandExists) {
-            throw new NotFoundException(
-                "Brand not found"
-            );
-        }
-
-        const productExists =
-            await this.productRepository.exists({
-                title,
-                isDeleted: false
-            });
-
-        if (productExists) {
-            throw new ConflictException(
-                "Product already exists"
-            );
-        }
+            isDeleted: false
+        });
+        if (productExists) throw new ConflictException("Product already exists");
 
         const uploadedFiles: UploadApiResponse[] = [];
 
@@ -103,63 +56,39 @@ export class ProductService {
                 uploadedFiles.push(...uploaded);
             }
 
-            const product =
-                await this.productRepository.createDocument({
+            const product = await this.productRepository.createDocument({
 
-                    title,
+                title,
+                overview,
+                price,
+                discount,
+                finalPrice: price - (price * (discount / 100)),
+                stock,
+                images: uploadedFiles.map(file => ({
+                    secure_url: file.secure_url,
+                    public_id: file.public_id
+                })),
 
-                    overview,
-
-                    price,
-
-                    discount,
-
-                    finalPrice:
-                        price -
-                        (
-                            price *
-                            (discount / 100)
-                        ),
-
-                    stock,
-
-                    images: uploadedFiles.map(file => ({
-                        secure_url: file.secure_url,
-                        public_id: file.public_id
-                    })),
-
-                    createdBy:
-                        new Types.ObjectId(userId),
-
-                    category:
-                        new Types.ObjectId(category),
-
-                    brand:
-                        new Types.ObjectId(brand)
-                });
-
+                createdBy: new Types.ObjectId(userId),
+                category: new Types.ObjectId(category),
+                brand: new Types.ObjectId(brand)
+            });
             return product;
 
         } catch (error) {
 
             if (uploadedFiles.length) {
-
-                await this.cloudinaryService
-                    .deleteMultipleFiles(
-                        uploadedFiles.map(
-                            file => file.public_id
-                        )
-                    );
+                await this.cloudinaryService.deleteMultipleFiles(
+                    uploadedFiles.map(
+                        file => file.public_id
+                    )
+                );
             }
-
             throw error;
         }
     }
 
-    async getProducts(
-        page: number = 1,
-        limit: number = 10
-    ) {
+    async getProducts(page: number = 1, limit: number = 10) {
 
         return await this.productRepository.paginateModel(
             {
@@ -184,88 +113,58 @@ export class ProductService {
         );
     }
 
-    async getProductById(
-        productId: string
-    ) {
+    async getProductById(productId: string) {
 
-        const product =
-            await this.productRepository.findOneDocument(
-                {
-                    _id: productId,
-                    isDeleted: false,
-                    isActive: true
-                },
-                undefined,
-                {
-                    populate: [
-                        {
-                            path: "category",
-                            select: "name slug"
-                        },
-                        {
-                            path: "brand",
-                            select: "name slug logo"
-                        }
-                    ]
-                }
-            );
+        const product = await this.productRepository.findOneDocument(
+            {
+                _id: productId,
+                isDeleted: false,
+                isActive: true
+            },
+            undefined,
+            {
+                populate: [
+                    {
+                        path: "category",
+                        select: "name slug"
+                    },
+                    {
+                        path: "brand",
+                        select: "name slug logo"
+                    }
+                ]
+            }
+        );
 
-        if (!product) {
-            throw new NotFoundException(
-                "Product not found"
-            );
-        }
-
+        if (!product) throw new NotFoundException("Product not found");
         return product;
     }
 
-    async updateProduct(
-        productId: string,
-        body: UpdateProductDto,
-        userId: string
-    ) {
+    async updateProduct(productId: string, body: UpdateProductDto, userId: string) {
 
-        const product =
-            await this.productRepository.findOneDocument({
-                _id: productId,
-                createdBy: userId,
+        const product = await this.productRepository.findOneDocument({
+            _id: productId,
+            isDeleted: false
+        });
+        if (!product) throw new NotFoundException("Product not found");
+
+        if (body.category) {
+            const categoryExists = await this.categoryRepository.exists({
+                _id: body.category,
                 isDeleted: false
             });
 
-        if (!product) {
-            throw new ForbiddenException(
-                "You are not allowed to update this product"
-            );
-        }
-
-        if (body.category) {
-
-            const categoryExists =
-                await this.categoryRepository.exists({
-                    _id: body.category,
-                    isDeleted: false
-                });
-
-            if (!categoryExists) {
-                throw new NotFoundException(
-                    "Category not found"
-                );
-            }
+            if (!categoryExists) throw new NotFoundException("Category not found");
         }
 
         if (body.brand) {
 
-            const brandExists =
-                await this.brandRepository.exists({
-                    _id: body.brand,
-                    isDeleted: false
-                });
+            const brandExists = await this.brandRepository.exists({
+                _id: body.brand,
+                isDeleted: false
+            });
+            if (!brandExists) throw new NotFoundException("Brand not found");
 
-            if (!brandExists) {
-                throw new NotFoundException(
-                    "Brand not found"
-                );
-            }
         }
 
         const updateData: any = {};
@@ -304,34 +203,26 @@ export class ProductService {
 
         if (body.images !== undefined) {
 
-            if (!body.images.length) {
-                throw new BadRequestException(
-                    "At least one image is required"
+            if (!body.images.length) throw new BadRequestException("At least one image is required");
+
+
+            uploadedFiles = await this.cloudinaryService
+                .uploadMultipleFiles(
+                    body.images.map(image =>
+                        Buffer.from(image, "base64")
+                    ),
+                    {
+                        resource_type: "image"
+                    }
                 );
-            }
 
-            uploadedFiles =
-                await this.cloudinaryService
-                    .uploadMultipleFiles(
-                        body.images.map(image =>
-                            Buffer.from(image, "base64")
-                        ),
-                        {
-                            resource_type: "image"
-                        }
-                    );
-
-            updateData.images =
-                uploadedFiles.map(file => ({
-                    secure_url: file.secure_url,
-                    public_id: file.public_id
-                }));
+            updateData.images = uploadedFiles.map(file => ({
+                secure_url: file.secure_url,
+                public_id: file.public_id
+            }));
         }
 
-        if (
-            Object.keys(updateData).length === 0
-        ) {
-
+        if (Object.keys(updateData).length === 0) {
             throw new BadRequestException(
                 "No data provided for update"
             );
@@ -339,61 +230,41 @@ export class ProductService {
 
         try {
 
-            const updatedProduct =
-                await this.productRepository
-                    .findByIdAndUpdate(
-                        productId,
-                        updateData
-                    );
+            const updatedProduct = await this.productRepository.findByIdAndUpdate(
+                productId,
+                updateData
+            );
 
-            if (
-                uploadedFiles.length &&
-                product.images?.length
-            ) {
-
-                await this.cloudinaryService
-                    .deleteMultipleFiles(
-                        product.images.map(
-                            image => image.public_id
-                        )
-                    );
+            if (uploadedFiles.length && product.images?.length) {
+                await this.cloudinaryService.deleteMultipleFiles(
+                    product.images.map(
+                        image => image.public_id
+                    )
+                );
             }
-
             return updatedProduct;
 
         } catch (error) {
 
             if (uploadedFiles.length) {
 
-                await this.cloudinaryService
-                    .deleteMultipleFiles(
-                        uploadedFiles.map(
-                            file => file.public_id
-                        )
-                    );
+                await this.cloudinaryService.deleteMultipleFiles(
+                    uploadedFiles.map(
+                        file => file.public_id
+                    )
+                );
             }
-
             throw error;
         }
     }
 
-    async deleteProduct(
-        productId: string,
-        userId: string
-    ) {
+    async deleteProduct(productId: string, userId: string) {
 
-        const product =
-            await this.productRepository.findOneDocument({
-                _id: productId,
-                createdBy: userId,
-                isDeleted: false
-            });
-
-        if (!product) {
-            throw new ForbiddenException(
-                "You are not allowed to delete this product"
-            );
-        }
+        const product = await this.productRepository.findOneDocument({
+            _id: productId,
+            isDeleted: false
+        });
+        if (!product) throw new NotFoundException("Product not found");
 
         return await this.productRepository.findByIdAndUpdate(
             productId,

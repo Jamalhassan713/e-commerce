@@ -1,4 +1,4 @@
-import { IsOptional, IsString, MaxLength, MinLength } from "class-validator";
+import { IsBase64, IsOptional, IsString, MaxLength, MinLength } from "class-validator";
 
 export class createBrandDto {
 
@@ -9,6 +9,7 @@ export class createBrandDto {
 
     @IsOptional()
     @IsString()
+    @IsBase64()
     logo?: string;
 }
 
@@ -22,5 +23,6 @@ export class updateBrandDto {
 
     @IsOptional()
     @IsString()
+    @IsBase64()
     logo?: string;
 }

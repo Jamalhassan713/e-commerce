@@ -1,49 +1,19 @@
-import {
-    Body,
-    Controller,
-    Delete,
-    Get,
-    Param,
-    Patch,
-    Post,
-    Query
-} from "@nestjs/common";
-
-import {
-    Auth,
-    AuthUser
-} from "@/common/decorators/custom.decorator";
-
-import {
-    systemRoles
-} from "@/common";
-
-import {
-    UserType
-} from "@/db";
-
-import {
-    CreateCategoryDto,
-    UpdateCategoryDto
-} from "./category.dto";
-
-import {
-    CategoryService
-} from "./category.service";
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query } from "@nestjs/common";
+import { Auth, AuthUser } from "@/common/decorators/custom.decorator";
+import { systemRoles } from "@/common";
+import { UserType } from "@/db";
+import { CreateCategoryDto, UpdateCategoryDto } from "./category.dto";
+import { CategoryService } from "./category.service";
 
 @Controller("categories")
 export class CategoryController {
 
     constructor(
         private readonly categoryService: CategoryService
-    ) {}
+    ) { }
 
     @Post()
-    @Auth([
-        systemRoles.USER,
-        systemRoles.ADMIN,
-        systemRoles.SUPER_ADMIN
-    ])
+    @Auth([systemRoles.ADMIN, systemRoles.SUPER_ADMIN])
     async addCategory(
         @Body() body: CreateCategoryDto,
         @AuthUser() user: Partial<UserType>
@@ -51,12 +21,7 @@ export class CategoryController {
 
         return {
             message: "Category created successfully",
-
-            data:
-                await this.categoryService.addCategory(
-                    body,
-                    user._id!.toString()
-                )
+            data: await this.categoryService.addCategory(body, user._id!.toString())
         };
     }
 
@@ -65,7 +30,6 @@ export class CategoryController {
         @Query("page") page: number = 1,
         @Query("limit") limit: number = 10
     ) {
-
         return await this.categoryService.getCategories(
             page,
             limit
@@ -84,7 +48,6 @@ export class CategoryController {
 
     @Patch(":categoryId")
     @Auth([
-        systemRoles.USER,
         systemRoles.ADMIN,
         systemRoles.SUPER_ADMIN
     ])
@@ -96,7 +59,6 @@ export class CategoryController {
 
         return {
             message: "Category updated successfully",
-
             data:
                 await this.categoryService.updateCategory(
                     categoryId,
@@ -105,10 +67,8 @@ export class CategoryController {
                 )
         };
     }
-
     @Delete(":categoryId")
     @Auth([
-        systemRoles.USER,
         systemRoles.ADMIN,
         systemRoles.SUPER_ADMIN
     ])
@@ -119,7 +79,6 @@ export class CategoryController {
 
         return {
             message: "Category deleted successfully",
-
             data:
                 await this.categoryService.deleteCategory(
                     categoryId,
